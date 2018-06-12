@@ -12,7 +12,7 @@ if (process.env.MNEMONIC) {
   mnemonic = process.env.MNEMONIC;
 }
 
-if (mnemonic.includes('candy maple cake') && process.argv[4] !== 'mainnet') {
+if (mnemonic.includes('candy maple cake') && process.argv[4] === 'mainnet') {
   console.log(
     'WARNING! It looks like you are trying to deploy to the Ethereum Main Network using a mnemonic',
     'that looks suscpiciously like the default ganache mnemonic. ',
