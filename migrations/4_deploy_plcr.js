@@ -22,7 +22,7 @@ module.exports = (deployer, network, accounts) => {
 
   return deployer.then(async () => {
     let config = JSON.parse(fs.readFileSync('./conf/config.json'));
-    if (network === 'ganache' || network === 'rinkeby') {
+    if (process.argv[5] && (network === 'ganache' || network === 'rinkeby')) {
       config = JSON.parse(fs.readFileSync(`./conf/${process.argv[5]}.json`));
     }
     let tokenAddress = config.token.address;
