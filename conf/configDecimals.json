@@ -1,0 +1,44 @@
+{
+  "paramDefaults": {
+    "minDeposit": 10000000000000000000,
+    "pMinDeposit": 100000000000000000000,
+    "applyStageLength": 600,
+    "pApplyStageLength": 1200,
+    "commitStageLength": 600,
+    "pCommitStageLength": 1200,
+    "revealStageLength": 600,
+    "pRevealStageLength": 1200,
+    "dispensationPct": 50,
+    "pDispensationPct": 50,
+    "voteQuorum": 50,
+    "pVoteQuorum": 50
+	},
+  "name": "The TestChain Registry",
+  "token": {
+    "address": "0x337cDDa6D41A327c5ad456166CCB781a9722AFf9",
+    "deployToken": true,
+    "decimals": "18",
+    "name": "TestCoin",
+    "symbol": "TEST",
+    "supply": "1000000000000000000000000000",
+    "tokenHolders": [
+      { "address": "0x627306090abaB3A6e1400e9345bC60c78a8BEf57",
+        "amount": "125000000000000000000000000" },
+      { "address": "0xf17f52151EbEF6C7334FAD080c5704D77216b732",
+        "amount": "125000000000000000000000000" },
+      { "address": "0xC5fdf4076b8F3A5357c5E395ab970B5B54098Fef",
+        "amount": "125000000000000000000000000" },
+      { "address": "0x821aEa9a577a9b44299B9c15c88cf3087F3b5544",
+        "amount": "125000000000000000000000000" },
+      { "address": "0xd09cc3bc67e4294c4a446d8e4a2934a921410ed7",
+        "amount": "125000000000000000000000000" },
+      { "address": "0xeda75f826f12dfb245144769d97bf6d47abd2473",
+        "amount": "125000000000000000000000000" },
+      { "address": "0x1f58f7f0f8a768279bf3eb61eafbf37adead9032",
+        "amount": "125000000000000000000000000" },
+      { "address": "0x1abff9a5a5c3360b1222d5f915f9c8ba82d5c99a",
+        "amount": "125000000000000000000000000" }
+    ]
+  }
+}
+
