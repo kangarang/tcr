@@ -167,8 +167,7 @@ const utils = {
     // return receipt.logs[0].args.challengeID;
 
     // This returns the first _Challenge log in the receipt
-    const challengeLogs = receipt.logs.filter(log => log.event === '_Challenge');
-    return challengeLogs[0].args.challengeID;
+    return utils.getReceiptValue(receipt, 'challengeID', '_Challenge');
   },
 
   commitVote: async (pollID, voteOption, tokensArg, salt, voter, voting) => {
@@ -179,16 +178,21 @@ const utils = {
     await utils.as(voter, voting.commitVote, pollID, hash, tokensArg, prevPollID);
   },
 
-  getReceiptValue: (receipt, arg) => receipt.logs[0].args[arg],
+  getReceiptValue: (receipt, arg, event) => {
+    if (event) {
+      return (receipt.logs.filter(log => log.event === event)[0]).args[arg];
+    }
+    return receipt.logs[0].args[arg];
+  },
 
   proposeReparamAndGetPropID: async (reParam, value, actor, parameterizer) => {
     const receipt = await utils.as(actor, parameterizer.proposeReparameterization, reParam, value);
-    return receipt.logs[0].args.propID;
+    return utils.getReceiptValue(receipt, 'propID', '_ReparameterizationProposal');
   },
 
   challengeReparamAndGetChallengeID: async (propID, actor, parameterizer) => {
     const receipt = await utils.as(actor, parameterizer.challengeReparameterization, propID);
-    return receipt.logs[0].args.challengeID;
+    return utils.getReceiptValue(receipt, 'challengeID', '_NewChallenge');
   },
 
   divideAndGetWei: (numerator, denominator) => {
