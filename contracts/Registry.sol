@@ -4,6 +4,7 @@ import "tokens/eip20/EIP20Interface.sol";
 import "./Parameterizer.sol";
 import "plcr-revival/PLCRVoting.sol";
 import "zeppelin/math/SafeMath.sol";
+import "./Bank.sol";
 
 contract Registry {
 
@@ -23,6 +24,7 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
+    event DEBUG(string name, uint value);
 
     using SafeMath for uint;
 
@@ -40,6 +42,8 @@ contract Registry {
         bool resolved;          // Indication of if challenge is resolved
         uint stake;             // Number of tokens at stake for either party during challenge
         uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
+        uint totalWinningTokens;
+        uint epoch;
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
     }
 
@@ -53,6 +57,7 @@ contract Registry {
     EIP20Interface public token;
     PLCRVoting public voting;
     Parameterizer public parameterizer;
+    Bank public bank;
     string public name;
 
     /**
@@ -67,6 +72,7 @@ contract Registry {
         token = EIP20Interface(_token);
         voting = PLCRVoting(_voting);
         parameterizer = Parameterizer(_parameterizer);
+        bank = new Bank(token);
         name = _name;
     }
 
@@ -193,7 +199,9 @@ contract Registry {
             rewardPool: ((oneHundred.sub(parameterizer.get("dispensationPct"))).mul(minDeposit)).div(100),
             stake: minDeposit,
             resolved: false,
-            totalTokens: 0
+            totalTokens: 0,
+            totalWinningTokens: 0,
+            epoch: bank.getCurrentEpoch()
         });
 
         // Updates listingHash to store most recent challenge
@@ -399,17 +407,19 @@ contract Registry {
     */
     function resolveChallenge(bytes32 _listingHash) private {
         uint challengeID = listings[_listingHash].challengeID;
+        Challenge storage challenge = challenges[challengeID];
 
         // Calculates the winner's reward,
         // which is: (winner's full stake) + (dispensationPct * loser's stake)
         uint reward = determineReward(challengeID);
 
         // Sets flag on challenge being processed
-        challenges[challengeID].resolved = true;
+        challenge.resolved = true;
 
+        uint totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
+        challenge.totalWinningTokens = totalWinningTokens;
         // Stores the total tokens used for voting by the winning side for reward purposes
-        challenges[challengeID].totalTokens =
-            voting.getTotalNumberOfTokensForWinningOption(challengeID);
+        challenge.totalTokens = totalWinningTokens;
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
@@ -417,15 +427,15 @@ contract Registry {
             // Unlock stake so that it can be retrieved by the applicant
             listings[_listingHash].unstakedDeposit += reward;
 
-            emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
+            emit _ChallengeFailed(_listingHash, challengeID, challenge.rewardPool, challenge.totalTokens);
         }
         // Case: challenge succeeded or nobody voted
         else {
             resetListing(_listingHash);
             // Transfer the reward to the challenger
-            require(token.transfer(challenges[challengeID].challenger, reward));
+            require(token.transfer(challenge.challenger, reward));
 
-            emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
+            emit _ChallengeSucceeded(_listingHash, challengeID, challenge.rewardPool, challenge.totalTokens);
         }
     }
 

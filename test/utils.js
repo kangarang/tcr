@@ -163,7 +163,12 @@ const utils = {
 
   challengeAndGetPollID: async (domain, actor, registry) => {
     const receipt = await utils.as(actor, registry.challenge, domain, '');
-    return receipt.logs[0].args.challengeID;
+    // NOTE: this returns the FIRST log in the receipt, i.e. the FIRST event that gets emitted
+    // return receipt.logs[0].args.challengeID;
+
+    // This returns the first _Challenge log in the receipt
+    const challengeLogs = receipt.logs.filter(log => log.event === '_Challenge');
+    return challengeLogs[0].args.challengeID;
   },
 
   commitVote: async (pollID, voteOption, tokensArg, salt, voter, voting) => {
