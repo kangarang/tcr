@@ -59,6 +59,10 @@ const utils = {
     const paramProxy = Parameterizer.at(parameterizer);
     const registryProxy = Registry.at(registry);
 
+    const bankReserve = (await tokenInstance.totalSupply.call()).div('3');
+    const bank = await registryProxy.bank.call();
+    await tokenInstance.transfer(bank, bankReserve);
+
     const proxies = {
       tokenInstance,
       votingProxy,

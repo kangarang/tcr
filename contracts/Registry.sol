@@ -24,6 +24,7 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
+    event _InflationRewardsClaimed(uint epochNumber, address voter, uint rewards);
     event DEBUG(string name, uint value);
 
     using SafeMath for uint;
@@ -272,6 +273,9 @@ contract Registry {
         // Ensures a voter cannot claim tokens again
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 
+        uint epochTokens = bank.addRevealVoterTokens(challenges[_challengeID].epoch, msg.sender, voterTokens);
+        emit DEBUG("epochTokens", epochTokens);
+
         require(token.transfer(msg.sender, reward));
 
         emit _RewardClaimed(_challengeID, reward, msg.sender);
@@ -291,6 +295,22 @@ contract Registry {
         for (uint i = 0; i < _challengeIDs.length; i++) {
             claimReward(_challengeIDs[i], _salts[i]);
         }
+    }
+
+    function claimInflationRewards(uint _epochNumber) public {
+        (,, bool resolved) = bank.epochs(_epochNumber);
+        if (!resolved) {
+            // transfer Bank.balance / inflation_denominator
+            require(bank.resolveEpochInflationTransfer(_epochNumber));
+        }
+
+        (uint tokens, uint inflation,) = bank.epochs(_epochNumber);
+
+        uint voterTokens = bank.getEpochVoterTokens(_epochNumber, msg.sender);
+        uint inflationRewards = voterTokens.mul(inflation).div(tokens);
+
+        // require(token.transfer(msg.sender, inflationRewards));
+        // emit _InflationRewardsClaimed(_epochNumber, msg.sender, inflationRewards);
     }
 
     // --------
@@ -420,6 +440,8 @@ contract Registry {
         challenge.totalWinningTokens = totalWinningTokens;
         // Stores the total tokens used for voting by the winning side for reward purposes
         challenge.totalTokens = totalWinningTokens;
+
+        require(bank.resolveEpochChallenge(challenge.epoch, totalWinningTokens));
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
