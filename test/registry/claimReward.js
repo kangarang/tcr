@@ -52,7 +52,6 @@ contract('Registry', (accounts) => {
       // Alice claims reward
       const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
-      await utils.as(voterAlice, registry.claimInflationRewards, '0');
 
       // Alice withdraws her voting rights
       await utils.as(voterAlice, voting.withdrawVotingRights, '500');
@@ -64,6 +63,9 @@ contract('Registry', (accounts) => {
         aliceFinalBalance.toString(10), aliceExpected.toString(10),
         'alice should have the same balance as she started',
       );
+
+      const hash = await utils.as(voterAlice, registry.claimInflationRewards, '0');
+      console.log('receipt:', hash);
     });
 
     // it('should revert if challenge does not exist', async () => {

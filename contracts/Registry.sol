@@ -305,12 +305,11 @@ contract Registry {
         }
 
         (uint tokens, uint inflation,) = bank.epochs(_epochNumber);
-
         uint voterTokens = bank.getEpochVoterTokens(_epochNumber, msg.sender);
         uint inflationRewards = voterTokens.mul(inflation).div(tokens);
 
-        // require(token.transfer(msg.sender, inflationRewards));
-        // emit _InflationRewardsClaimed(_epochNumber, msg.sender, inflationRewards);
+        require(token.transfer(msg.sender, inflationRewards));
+        emit _InflationRewardsClaimed(_epochNumber, msg.sender, inflationRewards);
     }
 
     // --------

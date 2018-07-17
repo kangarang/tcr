@@ -47,7 +47,6 @@ contract Bank {
 
     function getCurrentEpoch() public returns (uint epoch) {
         uint CURRENT_EPOCH = (now.sub(BIRTH_DATE)).div(EPOCH_DURATION);
-        emit DEBUG("getCurrentEpoch", CURRENT_EPOCH);
         return CURRENT_EPOCH;
     }
 
@@ -60,7 +59,6 @@ contract Bank {
 
         // increment epoch's total tokens (majority faction)
         epochs[_epochNumber].tokens += totalWinningTokens;
-        emit DEBUG("epoch.tokens", epochs[_epochNumber].tokens);
         return true;
     }
 
@@ -80,13 +78,12 @@ contract Bank {
         epoch.resolved = true;
 
         uint EPOCH_INFLATION = token.balanceOf(this).div(INFLATION_DENOMINATOR);
-
         epoch.inflation = EPOCH_INFLATION;
 
-        emit DEBUG("EPOCH_INFLATION", EPOCH_INFLATION);
-        emit DEBUG("_epochNumber", _epochNumber);
+        // emit DEBUG("EPOCH_INFLATION", EPOCH_INFLATION);
+        // emit DEBUG("_epochNumber", _epochNumber);
 
-        token.transfer(msg.sender, EPOCH_INFLATION);
+        require(token.transfer(msg.sender, EPOCH_INFLATION));
         return true;
     }
 }
