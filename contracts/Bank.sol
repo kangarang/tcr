@@ -15,9 +15,9 @@ contract Bank {
 
     // Global Variables
     EIP20Interface public token;
-    uint public BIRTH_DATE;            // set once on init
-    uint public constant EPOCH_DURATION = 180;  // 3 minutes (HARD)
-    uint public constant INFLATION_DENOMINATOR = 10000;
+    uint public BIRTH_DATE; // set once on init
+    uint public constant EPOCH_DURATION = 180; // 3 minutes (HARD)
+    uint public constant INFLATION_DENOMINATOR = 10000; // HARD
     address public owner;
 
     struct Epoch {
@@ -45,9 +45,47 @@ contract Bank {
         BIRTH_DATE = now;
     }
 
+    function resolveEpochChallenge(uint _epochNumber, uint totalWinningTokens) public onlyOwner returns (bool success) {
+        require(!epochs[_epochNumber].resolved);
+
+        // ----------------
+        // The TCR also keeps a tally of
+        // the total token weight revealed in majority factions for each epoch.
+        // ----------------
+
+        // increment epoch's total tokens (majority faction)
+        epochs[_epochNumber].tokens += totalWinningTokens;
+        return true;
+    }
+
+    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public returns (uint epochTokens) {
+        epochs[_epochNumber].voterTokens[_voter] += _numTokens;
+        return epochs[_epochNumber].tokens;
+    }
+
+    function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (uint epochInflation) {
+        // uint currentEpochNumber = getCurrentEpoch();
+        // require(currentEpochNumber > _epochNumber);
+        Epoch storage epoch = epochs[_epochNumber];
+        require(epoch.resolved == false);
+
+        // set the epoch's resolved flag as true
+        epoch.resolved = true;
+        // calculate the inflation and set it
+        // Bank.balance / inflation_denominator
+        epoch.inflation = token.balanceOf(this).div(INFLATION_DENOMINATOR);
+
+        require(token.transfer(msg.sender, epoch.inflation));
+        return epoch.inflation;
+    }
+
+    // -------
+    // Getters
+    // -------
+
     function getCurrentEpoch() public view returns (uint epoch) {
-        uint CURRENT_EPOCH = (now.sub(BIRTH_DATE)).div(EPOCH_DURATION);
-        return CURRENT_EPOCH;
+        // (block.timestamp - this.birthdate) / epoch_duration
+        return (now.sub(BIRTH_DATE)).div(EPOCH_DURATION);
     }
 
     function getEpochDetails(uint _epochNumber) public view returns (uint tokens, uint inflation, bool resolved) {
@@ -57,36 +95,9 @@ contract Bank {
         return epochs[_epochNumber].voterTokens[_voter];
     }
 
-    function resolveEpochChallenge(uint _epochNumber, uint totalWinningTokens) public onlyOwner returns (bool success) {
-        require(!epochs[_epochNumber].resolved);
-
-        // increment epoch's total tokens (majority faction)
-        epochs[_epochNumber].tokens += totalWinningTokens;
-        return true;
-    }
-
-    function addRevealVoterTokens(uint _epochNumber, address _voter, uint _numTokens) public returns (uint epochTokens) {
-        epochs[_epochNumber].voterTokens[_voter] += _numTokens;
-        return epochs[_epochNumber].tokens;
-    }
-
-    function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (bool success) {
-        // uint currentEpochNumber = getCurrentEpoch();
-        // require(currentEpochNumber > _epochNumber);
-
-        Epoch storage epoch = epochs[_epochNumber];
-        require(!epoch.resolved);
-
-        // set the epoch's resolved flag as true
-        epoch.resolved = true;
-
-        uint EPOCH_INFLATION = token.balanceOf(this).div(INFLATION_DENOMINATOR);
-        epoch.inflation = EPOCH_INFLATION;
-
-        // emit DEBUG("EPOCH_INFLATION", EPOCH_INFLATION);
-        // emit DEBUG("_epochNumber", _epochNumber);
-
-        require(token.transfer(msg.sender, EPOCH_INFLATION));
-        return true;
+    function getEpochInflationVoterRewards(uint _epochNumber, address _voter) public view returns (uint epochInflationVoterRewards) {
+        uint epochVoterTokens = getEpochVoterTokens(_epochNumber, _voter);
+        // (epoch.voterTokens[msg.sender] * epoch.inflation) / epoch.tokens
+        return epochVoterTokens.mul(epochs[_epochNumber].inflation).div(epochs[_epochNumber].tokens);
     }
 }
