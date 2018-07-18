@@ -24,7 +24,8 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
-    event _InflationRewardsClaimed(uint epochNumber, address voter, uint rewards);
+    event _InflationRewardsClaimed(uint epochNumber, uint epochTokens, uint epochInflation, uint epochInflationVoterRewards, address voter);
+    event _EpochResolved(uint epochNumber, uint epochTokens, uint epochInflation, address resolver);
     event DEBUG(string name, uint value);
 
     using SafeMath for uint;
@@ -44,7 +45,7 @@ contract Registry {
         uint stake;             // Number of tokens at stake for either party during challenge
         uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
         uint totalWinningTokens;
-        uint epoch;
+        uint epochNumber;
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
     }
 
@@ -202,7 +203,7 @@ contract Registry {
             resolved: false,
             totalTokens: 0,
             totalWinningTokens: 0,
-            epoch: bank.getCurrentEpoch()
+            epochNumber: 0
         });
 
         // Updates listingHash to store most recent challenge
@@ -258,23 +259,24 @@ contract Registry {
     @param _salt        The salt of a voter's commit hash in the given poll
     */
     function claimReward(uint _challengeID, uint _salt) public {
+        Challenge storage challenge = challenges[_challengeID];
         // Ensures the voter has not already claimed tokens and challenge results have been processed
-        require(challenges[_challengeID].tokenClaims[msg.sender] == false);
-        require(challenges[_challengeID].resolved == true);
+        require(challenge.tokenClaims[msg.sender] == false);
+        require(challenge.resolved == true);
 
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
         uint reward = voterReward(msg.sender, _challengeID, _salt);
 
         // Subtracts the voter's information to preserve the participation ratios
         // of other voters compared to the remaining pool of rewards
-        challenges[_challengeID].totalTokens -= voterTokens;
-        challenges[_challengeID].rewardPool -= reward;
+        challenge.totalTokens -= voterTokens;
+        challenge.rewardPool -= reward;
 
         // Ensures a voter cannot claim tokens again
-        challenges[_challengeID].tokenClaims[msg.sender] = true;
+        challenge.tokenClaims[msg.sender] = true;
 
-        uint epochTokens = bank.addRevealVoterTokens(challenges[_challengeID].epoch, msg.sender, voterTokens);
-        emit DEBUG("epochTokens", epochTokens);
+        // If the user’s vote is revealed in the majority voting faction, the TCR adds the user’s revealed token weight to that user’s tally for the epoch.
+        uint epochTokens = bank.addVoterRewardTokens(challenge.epochNumber, msg.sender, voterTokens);
 
         require(token.transfer(msg.sender, reward));
 
@@ -297,19 +299,39 @@ contract Registry {
         }
     }
 
-    function claimInflationRewards(uint _epochNumber) public {
-        (,, bool resolved) = bank.getEpochDetails(_epochNumber);
-        if (!resolved) {
-            // transfer Bank.balance / inflation_denominator
-            require(bank.resolveEpochInflationTransfer(_epochNumber));
+    function claimInflationRewards(uint _pollID) public {
+        uint epochNumber = challenges[_pollID].epochNumber;
+
+        // ----------------
+        // The claimInflationRewards function has privileged access to a bank contract.
+        // the first time the bank contract is invoked for some epoch,
+        // the TCR notes the bank’s balance,
+        // calculates 1/N of the balance (where N is a hard-coded parameter),
+        // stores that result (EPOCH_INFLATION) and transfers EPOCH_INFLATION tokens from the bank to itself.
+        // ----------------
+
+        (uint epochTokens, uint epochInflation, bool resolved) = bank.getEpochDetails(epochNumber);
+
+        // if epoch has not been resolved, resolve the epoch,
+        //  -> calculate the epoch.inflation, store it,
+        //  -> transfer the epoch.inflation from Bank -> this
+        if (!resolved && (epochInflation == 0)) {
+            epochInflation = bank.resolveEpochInflationTransfer(epochNumber);
+            emit _EpochResolved(epochNumber, epochTokens, epochInflation, msg.sender);
         }
 
-        (uint tokens, uint inflation,) = bank.getEpochDetails(_epochNumber);
-        uint voterTokens = bank.getEpochVoterTokens(_epochNumber, msg.sender);
-        uint inflationRewards = voterTokens.mul(inflation).div(tokens);
+        // ----------------
+        // When users invoke claimInflationRewards for some epoch,
+        // they are given inflation rewards from the EPOCH_INFLATION amount,
+        // proportional to their tallied token weight in that epoch.
+        // ----------------
 
-        require(token.transfer(msg.sender, inflationRewards));
-        emit _InflationRewardsClaimed(_epochNumber, msg.sender, inflationRewards);
+        // (epoch.voterTokens[msg.sender] * epoch.inflation) / epoch.tokens
+        uint epochInflationVoterRewards = bank.getEpochInflationVoterRewards(epochNumber, msg.sender);
+
+        // transfer epoch_inflation_voter_rewards -> msg.sender
+        require(token.transfer(msg.sender, epochInflationVoterRewards));
+        emit _InflationRewardsClaimed(epochNumber, epochTokens, epochInflation, epochInflationVoterRewards, msg.sender);
     }
 
     // --------
@@ -432,6 +454,7 @@ contract Registry {
         // which is: (winner's full stake) + (dispensationPct * loser's stake)
         uint reward = determineReward(challengeID);
 
+        // TODO: why is this necessary here???
         // Sets flag on challenge being processed
         challenge.resolved = true;
 
@@ -440,7 +463,14 @@ contract Registry {
         // Stores the total tokens used for voting by the winning side for reward purposes
         challenge.totalTokens = totalWinningTokens;
 
-        require(bank.resolveEpochChallenge(challenge.epoch, totalWinningTokens));
+        // ----------------
+        // When a user reveals their vote, the current epoch is computed as
+        // (CURRENT_TIME - REGISTRY_DEPLOY_TIME) / EPOCH_DURATION
+        // ----------------
+
+        challenge.epochNumber = bank.getCurrentEpoch();
+
+        require(bank.resolveEpochChallenge(challenge.epochNumber, totalWinningTokens));
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
