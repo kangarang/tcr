@@ -8,9 +8,9 @@ if (fs.existsSync('secrets.json')) {
   ({ mnemonic } = secrets);
 }
 
-// if (process.env.MNEMONIC) {
-//   mnemonic = process.env.MNEMONIC;
-// }
+if (process.env.MNEMONIC) {
+  mnemonic = process.env.MNEMONIC;
+}
 
 if (mnemonic.includes('candy maple cake') && process.argv[4] === 'mainnet') {
   console.log(

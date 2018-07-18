@@ -45,12 +45,15 @@ contract Bank {
         BIRTH_DATE = now;
     }
 
-    function getCurrentEpoch() public returns (uint epoch) {
+    function getCurrentEpoch() public view returns (uint epoch) {
         uint CURRENT_EPOCH = (now.sub(BIRTH_DATE)).div(EPOCH_DURATION);
         return CURRENT_EPOCH;
     }
 
-    function getEpochVoterTokens(uint _epochNumber, address _voter) public returns (uint voterTokens) {
+    function getEpochDetails(uint _epochNumber) public view returns (uint tokens, uint inflation, bool resolved) {
+        return (epochs[_epochNumber].tokens, epochs[_epochNumber].inflation, epochs[_epochNumber].resolved);
+    }
+    function getEpochVoterTokens(uint _epochNumber, address _voter) public view returns (uint voterTokens) {
         return epochs[_epochNumber].voterTokens[_voter];
     }
 

@@ -214,7 +214,7 @@ contract Registry {
         // Takes tokens from challenger
         require(token.transferFrom(msg.sender, this, minDeposit));
 
-        var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
+        (uint commitEndDate, uint revealEndDate,,,) = voting.pollMap(pollID);
 
         emit _Challenge(_listingHash, pollID, _data, commitEndDate, revealEndDate, msg.sender);
         return pollID;
@@ -298,13 +298,13 @@ contract Registry {
     }
 
     function claimInflationRewards(uint _epochNumber) public {
-        (,, bool resolved) = bank.epochs(_epochNumber);
+        (,, bool resolved) = bank.getEpochDetails(_epochNumber);
         if (!resolved) {
             // transfer Bank.balance / inflation_denominator
             require(bank.resolveEpochInflationTransfer(_epochNumber));
         }
 
-        (uint tokens, uint inflation,) = bank.epochs(_epochNumber);
+        (uint tokens, uint inflation,) = bank.getEpochDetails(_epochNumber);
         uint voterTokens = bank.getEpochVoterTokens(_epochNumber, msg.sender);
         uint inflationRewards = voterTokens.mul(inflation).div(tokens);
 
