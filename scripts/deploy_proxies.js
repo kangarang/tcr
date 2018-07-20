@@ -2,6 +2,7 @@
 const fs = require('fs');
 
 const RegistryFactory = artifacts.require('RegistryFactory.sol');
+const Registry = artifacts.require('Registry.sol');
 
 const config = JSON.parse(fs.readFileSync('../conf/configDecimals.json'));
 const paramConfig = config.paramDefaults;
@@ -14,9 +15,11 @@ module.exports = (done) => {
       : RegistryFactory.address // development
     );
 
-    console.log(`RegistryFactory:   ${registryFactoryAddress}`);
+    console.log('Using RegistryFactory at:');
+    console.log(`     ${registryFactoryAddress}`);
     console.log('');
     console.log('Deploying proxy contracts...');
+    console.log('...')
 
     const registryFactory = await RegistryFactory.at(registryFactoryAddress);
     const registryReceipt = await registryFactory.newRegistryWithToken(
@@ -48,13 +51,19 @@ module.exports = (done) => {
       registry,
     } = registryReceipt.logs[0].args;
 
-    console.log('');
+    const registryProxy = await Registry.at(registry);
+    const registryName = await registryProxy.name.call();
+
     console.log(`Proxy contracts successfully migrated to network_id: ${networkID}`)
     console.log('');
-    console.log(`${config.token.name}:          ${token}`);
-    console.log(`PLCRVoting:        ${plcr}`);
-    console.log(`Parameterizer:     ${parameterizer}`);
-    console.log(`Registry:          ${registry}`);
+    console.log(`${config.token.name} (EIP20):`);
+    console.log(`     ${token}`);
+    console.log(`PLCRVoting:`);
+    console.log(`     ${plcr}`);
+    console.log(`Parameterizer:`);
+    console.log(`     ${parameterizer}`);
+    console.log(`${registryName} (Registry):`);
+    console.log(`     ${registry}`);
     console.log('');
 
     return true;
