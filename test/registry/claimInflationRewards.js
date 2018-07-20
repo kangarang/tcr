@@ -68,21 +68,6 @@ contract('Registry', (accounts) => {
 
       const receipt = await utils.as(voterAlice, registry.claimInflationRewards, pollID);
       utils.logEvents('claimInflationRewards', receipt);
-
-      // TODO: tests for current epoch increasing
-      // await utils.increaseTime(10);
-      const bankAddress = await registry.bank.call();
-      const bank = Bank.at(bankAddress);
-      const e1 = await bank.getCurrentEpoch.call();
-      console.log('e1:', e1);
-      await utils.increaseTime(180);
-      const e2 = await bank.getCurrentEpoch.call();
-      console.log('e2:', e2);
-      const e3 = await bank.getCurrentEpoch.call();
-      console.log('e3:', e3);
-      await utils.increaseTime(10);
-      const e4 = await bank.getCurrentEpoch.call();
-      console.log('e4:', e4);
     });
   });
 });
