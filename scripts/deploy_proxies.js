@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const RegistryFactory = artifacts.require('RegistryFactory.sol');
 
-const config = JSON.parse(fs.readFileSync('../conf/config.json'));
+const config = JSON.parse(fs.readFileSync('../conf/configDecimals.json'));
 const paramConfig = config.paramDefaults;
 
 module.exports = (done) => {
