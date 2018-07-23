@@ -26,7 +26,6 @@ contract Registry {
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _InflationRewardsClaimed(uint epochNumber, uint epochTokens, uint epochInflation, uint epochInflationVoterRewards, address voter);
     event _EpochResolved(uint epochNumber, uint epochTokens, uint epochInflation, address resolver);
-    event DEBUG(string name, uint value);
 
     using SafeMath for uint;
 

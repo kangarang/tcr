@@ -68,6 +68,21 @@ contract('Registry', (accounts) => {
 
       const receipt = await utils.as(voterAlice, registry.claimInflationRewards, pollID);
       utils.logEvents('claimInflationRewards', receipt);
+
+      const bankAddress = await registry.bank.call();
+      const bank = Bank.at(bankAddress);
+
+      const challenge = await registry.challenges.call(pollID);
+      const epochNumber = challenge[6];
+      const aliceInflationReward = await bank.getEpochInflationVoterRewards(epochNumber, voterAlice);
+
+      const aliceExpectedInflation = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      const aliceFinalBalanceInflation = await token.balanceOf.call(voterAlice);
+
+      assert.strictEqual(
+        aliceFinalBalanceInflation.toString(10), aliceExpectedInflation.toString(10),
+        'alice has the wrong balance after inflation',
+      );
     });
   });
 });

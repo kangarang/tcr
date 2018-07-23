@@ -58,7 +58,7 @@ contract Bank {
         return true;
     }
 
-    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public returns (uint epochTokens) {
+    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (uint epochTokens) {
         epochs[_epochNumber].voterTokens[_voter] += _numTokens;
         return epochs[_epochNumber].tokens;
     }
