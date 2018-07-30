@@ -459,7 +459,6 @@ contract Registry {
         // which is: (winner's full stake) + (dispensationPct * loser's stake)
         uint reward = determineReward(challengeID);
 
-        // TODO: why is this necessary here???
         // Sets flag on challenge being processed
         challenge.resolved = true;
 
