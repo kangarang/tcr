@@ -52,7 +52,7 @@ contract Bank {
     @param _epochNumber         The epoch to increment total tokens
     @param _totalWinningTokens  The number of tokens revealed by a majority faction
     */
-    function resolveEpochChallenge(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool success) {
+    function addChallengeWinningTokens(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool success) {
         require(!epochs[_epochNumber].resolved);
 
         // increment epoch's total tokens (revealed by majority faction)
@@ -68,6 +68,8 @@ contract Bank {
     @param _numTokens       The number of token rewards claimed by a voter
     */
     function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (bool success) {
+        require(!epochs[_epochNumber].resolved);
+
         epochs[_epochNumber].voterTokens[_voter] += _numTokens;
         return true;
     }
@@ -82,7 +84,7 @@ contract Bank {
         // uint currentEpochNumber = getCurrentEpoch();
         // require(currentEpochNumber > _epochNumber);
         Epoch storage epoch = epochs[_epochNumber];
-        require(epoch.resolved == false);
+        require(!epoch.resolved);
 
         // set the epoch's resolved flag as true
         epoch.resolved = true;

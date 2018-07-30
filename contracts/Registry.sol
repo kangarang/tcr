@@ -470,8 +470,8 @@ contract Registry {
 
         // store the current epoch
         challenge.epochNumber = bank.getCurrentEpoch();
-        // resolve the epoch, adding the totalWinningTokens to the epoch's total tokens tally
-        require(bank.resolveEpochChallenge(challenge.epochNumber, totalWinningTokens));
+        // add the totalWinningTokens to the epoch's total tokens tally
+        require(bank.addChallengeWinningTokens(challenge.epochNumber, totalWinningTokens));
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
