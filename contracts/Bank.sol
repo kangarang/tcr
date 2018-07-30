@@ -35,8 +35,9 @@ contract Bank {
     }
 
     /**
-    @dev Initializer. Can only be called once.
-    @param _token The address where the ERC20 token contract is deployed
+    @dev            Initializer. Can only be called once.
+    @notice         Sets the owner, the ERC20 token, and the BIRTH_DATE
+    @param _token   The address where the ERC20 token contract is deployed
     */
     constructor(address _token) public {
         require(_token != 0 && address(token) == 0);
@@ -45,24 +46,38 @@ contract Bank {
         BIRTH_DATE = now;
     }
 
-    function resolveEpochChallenge(uint _epochNumber, uint totalWinningTokens) public onlyOwner returns (bool success) {
+    /**
+    @dev                        Keeps tally of the total number of tokens revealed by a majority faction
+    @notice                     Invoked during resolveChallenge
+    @param _epochNumber         The epoch to increment total tokens
+    @param _totalWinningTokens  The number of tokens revealed by a majority faction
+    */
+    function resolveEpochChallenge(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool success) {
         require(!epochs[_epochNumber].resolved);
 
-        // ----------------
-        // The TCR also keeps a tally of
-        // the total token weight revealed in majority factions for each epoch.
-        // ----------------
-
-        // increment epoch's total tokens (majority faction)
-        epochs[_epochNumber].tokens += totalWinningTokens;
+        // increment epoch's total tokens (revealed by majority faction)
+        epochs[_epochNumber].tokens += _totalWinningTokens;
         return true;
     }
 
-    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (uint epochTokens) {
+    /**
+    @dev                    Adds the number of tokens revealed by a majority faction voter
+    @notice                 Invoked during claimReward
+    @param _epochNumber     The epoch to increment voterTokens
+    @param _voter           The address of a voter who claimed rewards during an epoch
+    @param _numTokens       The number of token rewards claimed by a voter
+    */
+    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (bool success) {
         epochs[_epochNumber].voterTokens[_voter] += _numTokens;
-        return epochs[_epochNumber].tokens;
+        return true;
     }
 
+    /**
+    @dev                    Resolves an epoch, adds the appropriate inflation amount to the epoch,
+                            then transfers that amount to the Registry
+    @notice                 Invoked during claimInflationRewards
+    @param _epochNumber     The epoch number being resolved
+    */
     function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (uint epochInflation) {
         // uint currentEpochNumber = getCurrentEpoch();
         // require(currentEpochNumber > _epochNumber);

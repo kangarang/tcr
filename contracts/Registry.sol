@@ -270,15 +270,15 @@ contract Registry {
         // of other voters compared to the remaining pool of rewards
         challenge.totalTokens -= voterTokens;
         challenge.rewardPool -= reward;
-
         // Ensures a voter cannot claim tokens again
         challenge.tokenClaims[msg.sender] = true;
 
-        // If the user’s vote is revealed in the majority voting faction, the TCR adds the user’s revealed token weight to that user’s tally for the epoch.
-        uint epochTokens = bank.addVoterRewardTokens(challenge.epochNumber, msg.sender, voterTokens);
+        // If the user’s vote is revealed in the majority voting faction,
+        // the TCR adds the user’s revealed token weight to that user’s tally for the epoch.
+        require(bank.addVoterRewardTokens(challenge.epochNumber, msg.sender, voterTokens));
 
+        // transfers reward to the voter
         require(token.transfer(msg.sender, reward));
-
         emit _RewardClaimed(_challengeID, reward, msg.sender);
     }
 
@@ -298,6 +298,12 @@ contract Registry {
         }
     }
 
+    /**
+    @dev            Claims inflation rewards earned by a voter during a challenge epoch
+    @notice         The first time the bank is invoked for some epoch, the bank resolves the epoch,
+                    then transfers the appropriate inflation amount,
+    @param _pollID  The PLCR pollID of the challenge inflation rewards are being claimed for
+    */
     function claimInflationRewards(uint _pollID) public {
         uint epochNumber = challenges[_pollID].epochNumber;
 
@@ -462,13 +468,9 @@ contract Registry {
         // Stores the total tokens used for voting by the winning side for reward purposes
         challenge.totalTokens = totalWinningTokens;
 
-        // ----------------
-        // When a user reveals their vote, the current epoch is computed as
-        // (CURRENT_TIME - REGISTRY_DEPLOY_TIME) / EPOCH_DURATION
-        // ----------------
-
+        // store the current epoch
         challenge.epochNumber = bank.getCurrentEpoch();
-
+        // resolve the epoch, adding the totalWinningTokens to the epoch's total tokens tally
         require(bank.resolveEpochChallenge(challenge.epochNumber, totalWinningTokens));
 
         // Case: challenge failed
