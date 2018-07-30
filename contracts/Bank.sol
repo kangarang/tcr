@@ -68,7 +68,8 @@ contract Bank {
     @param _numTokens       The number of token rewards claimed by a voter
     */
     function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (bool success) {
-        require(!epochs[_epochNumber].resolved);
+        // TODO: uncommenting this throws out of gas
+        // require(!epochs[_epochNumber].resolved);
 
         epochs[_epochNumber].voterTokens[_voter] += _numTokens;
         return true;
