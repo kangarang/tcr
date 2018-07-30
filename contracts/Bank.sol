@@ -83,18 +83,36 @@ contract Bank {
     // Getters
     // -------
 
+    /**
+    @dev                    Returns the current epoch number
+    */
     function getCurrentEpoch() public view returns (uint epoch) {
         // (block.timestamp - this.birthdate) / epoch_duration
         return (now.sub(BIRTH_DATE)).div(EPOCH_DURATION);
     }
 
+    /**
+    @dev                    Returns the current details of an epoch: tokens, inflation, and whether it is resolved
+    @param _epochNumber     The epoch number being examined
+    */
     function getEpochDetails(uint _epochNumber) public view returns (uint tokens, uint inflation, bool resolved) {
         return (epochs[_epochNumber].tokens, epochs[_epochNumber].inflation, epochs[_epochNumber].resolved);
     }
+
+    /**
+    @dev                    Returns the number of tokens a voter voted within one epoch
+    @param _epochNumber     The epoch number being examined
+    @param _voter           The address of a voter who claimed rewards during an epoch
+    */
     function getEpochVoterTokens(uint _epochNumber, address _voter) public view returns (uint voterTokens) {
         return epochs[_epochNumber].voterTokens[_voter];
     }
 
+    /**
+    @dev                    Returns the number of tokens an epoch will reward to a voter while the (liquid) supply
+    @param _epochNumber     The epoch number being examined
+    @param _voter           The address of a voter who claimed rewards during an epoch
+    */
     function getEpochInflationVoterRewards(uint _epochNumber, address _voter) public view returns (uint epochInflationVoterRewards) {
         uint epochVoterTokens = getEpochVoterTokens(_epochNumber, _voter);
         // (epoch.voterTokens[msg.sender] * epoch.inflation) / epoch.tokens

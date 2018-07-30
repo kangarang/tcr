@@ -25,7 +25,7 @@ const BN = small => new Eth.BN(small.toString(10), 10);
 const utils = {
   // from: https://github.com/gnosis/safe-contracts/blob/master/test/utils.js
   logGasUsage: (subject, transactionOrReceipt) => {
-    let receipt = transactionOrReceipt.receipt || transactionOrReceipt
+    let receipt = transactionOrReceipt.receipt || transactionOrReceipt;
     console.log(`Gas costs for ${subject}:`);
     console.log(`    ${receipt.gasUsed}`);
   },
