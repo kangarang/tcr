@@ -15,10 +15,10 @@ contract RegistryFactory {
     Registry public canonizedRegistry;
 
     /// @dev constructor deploys a new proxyFactory.
-    constructor(ParameterizerFactory _parameterizerFactory) public {
+    constructor(ParameterizerFactory _parameterizerFactory, Registry _canonizedRegistry) public {
         parameterizerFactory = _parameterizerFactory;
         proxyFactory = parameterizerFactory.proxyFactory();
-        canonizedRegistry = new Registry();
+        canonizedRegistry = _canonizedRegistry;
     }
 
     /*
