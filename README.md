@@ -10,6 +10,9 @@ Rinkeby factory: [0x822415a1e4d0d7f99425d794a817d9b823bdcd0c](https://rinkeby.et
 
 EPM: [tcr](https://www.ethpm.com/registry/packages/44)
 
+## Notice
+This forked repo adds an extra data string to listing applications. This means that the event signature of an `_Application` will ultimately be different, as the tightly-packed types are different.
+
 ## Initialize
 The only environmental dependency you need is Node. Presently we can guarantee this all works with Node 8.
 ```
