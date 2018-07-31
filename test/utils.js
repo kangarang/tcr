@@ -14,6 +14,7 @@ const PLCRVoting = artifacts.require('PLCRVoting.sol');
 const Parameterizer = artifacts.require('Parameterizer.sol');
 const Registry = artifacts.require('Registry.sol');
 const Token = artifacts.require('EIP20.sol');
+const Bank = artifacts.require('Bank.sol');
 
 const RegistryFactory = artifacts.require('RegistryFactory.sol');
 
@@ -73,15 +74,18 @@ const utils = {
     const paramProxy = Parameterizer.at(parameterizer);
     const registryProxy = Registry.at(registry);
 
-    const bankReserve = (await tokenInstance.totalSupply.call()).div('3');
-    const bank = await registryProxy.bank.call();
-    await tokenInstance.transfer(bank, bankReserve);
+    // transfer 1/2 of the totalSupply
+    const bankReserve = (await tokenInstance.totalSupply.call()).div('2');
+    const bankAddress = await registryProxy.bank.call();
+    const bankInstance = Bank.at(bankAddress);
+    await tokenInstance.transfer(bankAddress, bankReserve);
 
     const proxies = {
       tokenInstance,
       votingProxy,
       paramProxy,
       registryProxy,
+      bankInstance,
     };
     return proxies;
   },
@@ -230,6 +234,11 @@ const utils = {
     const weiQuotient = utils.divideAndGetWei(y, z);
     return utils.multiplyFromWei(x, weiQuotient);
   },
+
+  getChallengeEpochNumber: async (registry, pollID) => {
+    const challenge = await registry.challenges.call(pollID);
+    return challenge[6];
+  }
 };
 
 module.exports = utils;

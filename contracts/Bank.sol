@@ -91,7 +91,7 @@ contract Bank {
         epoch.resolved = true;
         // calculate the inflation and set it
         // Bank.balance / inflation_denominator
-        epoch.inflation = token.balanceOf(this).div(INFLATION_DENOMINATOR);
+        epoch.inflation = getEpochInflation();
 
         require(token.transfer(msg.sender, epoch.inflation));
         return epoch.inflation;
@@ -100,6 +100,10 @@ contract Bank {
     // -------
     // Getters
     // -------
+
+    function getEpochInflation() public view returns (uint epochInflation) {
+        return token.balanceOf(this).div(INFLATION_DENOMINATOR);
+    }
 
     /**
     @dev                    Returns the current epoch number
