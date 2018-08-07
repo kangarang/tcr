@@ -220,13 +220,14 @@ contract('Registry', (accounts) => {
         address: voterAlice, voteOption: '0', numTokens: '500', salt: '420',
       };
 
-      const { pollID } = await utils.getToClaiming({
+      const pollID = await utils.getToClaiming({
         applicant,
         challenger,
         voters: { ali },
         registry,
         voting,
         minDeposit,
+        listingHash: await utils.getListingHash('getClaim.in'),
       });
 
       // Alice claims reward
@@ -262,13 +263,14 @@ contract('Registry', (accounts) => {
         address: voterBob, voteOption: '0', numTokens: '600', salt: '420',
       };
 
-      const { pollID } = await utils.getToClaiming({
+      const pollID = await utils.getToClaiming({
         applicant,
         challenger,
         voters: { ali, bob },
         registry,
         voting,
         minDeposit,
+        listingHash: await utils.getListingHash('getClaim.in'),
       });
 
       // Alice claims reward

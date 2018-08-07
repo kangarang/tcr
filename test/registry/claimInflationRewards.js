@@ -12,7 +12,7 @@ const bigTen = number => new BN(number.toString(10), 10);
 
 contract('Registry', (accounts) => {
   describe('Function: claimInflationRewards', () => {
-    const [applicant, challenger, voterAlice, voterBob, voterCat] = accounts;
+    const [applicant, challenger, voterAlice, voterBob, voterCat, voterDog] = accounts;
     const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
@@ -165,13 +165,14 @@ contract('Registry', (accounts) => {
         address: voterCat, voteOption: '1', numTokens: '1000', salt: '422',
       };
 
-      const { pollID } = await utils.getToClaiming({
+      const pollID = await utils.getToClaiming({
         applicant,
         challenger,
         voters: { ali, bob, cat },
         registry,
         voting,
         minDeposit,
+        listingHash: await utils.getListingHash('getClaim.in'),
       });
 
       // Get rewards
@@ -236,7 +237,117 @@ contract('Registry', (accounts) => {
       );
     });
 
-    it('should transfer the correct amount of tokens to the Registry, multiple voters, for multiple epochs', async () => {});
+    it('should transfer the correct amount of tokens to the Registry, multiple voters, for multiple epochs', async () => {
+      // const aliSB = await token.balanceOf.call(voterAlice);
+      // const bobSB = await token.balanceOf.call(voterBob);
+      // const catSB = await token.balanceOf.call(voterCat);
+      // const dogSB = await token.balanceOf.call(voterDog);
+
+      const ali = {
+        address: voterAlice, voteOption: '0', numTokens: '500', salt: '420',
+      };
+      const bob = {
+        address: voterBob, voteOption: '1', numTokens: '800', salt: '421',
+      };
+      const cat = {
+        address: voterCat, voteOption: '1', numTokens: '1000', salt: '422',
+      };
+      const dog = {
+        address: voterDog, voteOption: '1', numTokens: '30000', salt: '422',
+      };
+
+      const pollID1 = await utils.getToClaiming({
+        applicant,
+        challenger,
+        voters: { ali, bob },
+        registry,
+        voting,
+        minDeposit,
+        listingHash: await utils.getListingHash('getClaim.in'),
+      });
+
+      await utils.increaseTime(epochDuration);
+
+      const pollID2 = await utils.getToClaiming({
+        applicant,
+        challenger,
+        voters: { cat, dog },
+        registry,
+        voting,
+        minDeposit,
+        listingHash: await utils.getListingHash('getClaim2.in'),
+      });
+
+      // get the epoch number
+      const ep1 = await utils.getChallengeEpochNumber(registry, pollID1);
+      const ep2 = await utils.getChallengeEpochNumber(registry, pollID2);
+      assert.notEqual(ep1.toString(), ep2.toString(), 'should not be in the same epoch');
+
+      // Get rewards
+      // alice lost, expect throw
+      await utils.expectThrow(registry.voterReward.call(voterAlice, pollID1, ali.salt), 'should not have completed because cat lost');
+      // const bobVR = await registry.voterReward.call(voterBob, pollID1, bob.salt);
+      // // cat and dog both won
+      // const catVR = await registry.voterReward.call(voterCat, pollID2, cat.salt);
+      // const dogVR = await registry.voterReward.call(voterDog, pollID2, dog.salt);
+
+      // Claim rewards
+      // alice did not win, expect throw
+      await utils.expectThrow(utils.as(voterAlice, registry.claimReward, pollID1, ali.salt), 'should not have been able to claim reward as alice');
+      await utils.as(voterBob, registry.claimReward, pollID1, bob.salt);
+      await utils.as(voterCat, registry.claimReward, pollID2, cat.salt);
+      await utils.as(voterDog, registry.claimReward, pollID2, dog.salt);
+
+      // Withdraw voting rights
+      await utils.as(voterBob, voting.withdrawVotingRights, bob.numTokens);
+      await utils.as(voterCat, voting.withdrawVotingRights, cat.numTokens);
+      await utils.as(voterDog, voting.withdrawVotingRights, dog.numTokens);
+
+      // check all winners' epoch.voterTokens
+      const bobEVT = await bank.getEpochVoterTokens.call(ep1, voterBob);
+      assert.strictEqual(bobEVT.toString(), bob.numTokens, 'epoch should have returned the correct number of tokens');
+      const catEVT = await bank.getEpochVoterTokens.call(ep2, voterCat);
+      assert.strictEqual(catEVT.toString(), cat.numTokens, 'epoch should have returned the correct number of tokens');
+      const dogEVT = await bank.getEpochVoterTokens.call(ep2, voterDog);
+      assert.strictEqual(dogEVT.toString(), dog.numTokens, 'epoch should have returned the correct number of tokens');
+
+      await token.balanceOf.call(registry.address);
+
+      // Claim inflation rewards
+      await utils.increaseTime(epochDuration);
+      await utils.as(voterBob, registry.claimInflationRewards, pollID1);
+      await utils.as(voterCat, registry.claimInflationRewards, pollID2);
+      await utils.as(voterBob, registry.claimInflationRewards, pollID2);
+      // cat lost, expect throw
+      await utils.expectThrow(
+        utils.as(voterAlice, registry.claimInflationRewards, pollID1),
+        'should not have been able to claim inflation rewards as voterCat',
+      );
+
+      // const regFinalBal = await token.balanceOf.call(registry.address);
+      // const expectedRegFinalBal = regStartBal;
+      // utils.assertEqualToOrPlusMinusOne(regFinalBal, expectedRegFinalBal, 'registry');
+
+      // // Inflation rewards balance checks
+      // const aliceInflationReward =
+      //   await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
+      // const aliceExpected = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      // const aliceActual = await token.balanceOf.call(voterAlice);
+      // utils.assertEqualToOrPlusMinusOne(aliceActual, aliceExpected, voterAlice);
+
+      // const bobInflationReward =
+      //   await bank.getEpochInflationVoterRewards.call(epochNumber, voterBob);
+      // const bobExpected = bobStartingBalance.add(bobVoterReward).add(bobInflationReward);
+      // const bobActual = await token.balanceOf.call(voterBob);
+      // utils.assertEqualToOrPlusMinusOne(bobActual, bobExpected, voterBob);
+
+      // const catInflationReward =
+      //   await bank.getEpochInflationVoterRewards.call(epochNumber, voterCat);
+      // assert.strictEqual(
+      //   catInflationReward.toString(), '0',
+      //   'cat should not have received any inflation rewards',
+      // );
+    });
   });
 });
 

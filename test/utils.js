@@ -306,18 +306,17 @@ const utils = {
 
   getToClaiming: async (argObj) => {
     const {
-      applicant, challenger, voters, registry, voting, minDeposit,
+      applicant, challenger, voters, registry, voting, minDeposit, listingHash,
     } = argObj;
-    const listing = utils.getListingHash('getClaim.in');
 
     // Apply / Challenge
-    await utils.as(applicant, registry.apply, listing, minDeposit, '');
-    const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
+    await utils.as(applicant, registry.apply, listingHash, minDeposit, 'listingData');
+    const pollID = await utils.challengeAndGetPollID(listingHash, challenger, registry);
 
     // Commits
     await Promise.all(Object.keys(voters).map(async (voter) => {
       const {
-        address, voteOption = '0', numTokens = '500', salt = '420',
+        address, voteOption, numTokens, salt,
       } = voters[voter];
       await utils.commitVote(pollID, voteOption, numTokens, salt, address, voting);
     }));
@@ -326,15 +325,19 @@ const utils = {
 
     // Reveals
     await Promise.all(Object.keys(voters).map(async (voter) => {
-      const { address, voteOption = '0', salt = '420' } = voters[voter];
+      const { address, voteOption, salt } = voters[voter];
       await utils.as(address, voting.revealVote, pollID, voteOption, salt);
     }));
 
     await utils.increaseTime(paramConfig.revealStageLength + 1);
 
     // Update status
-    await utils.as(applicant, registry.updateStatus, listing);
-    return { pollID };
+    await utils.as(applicant, registry.updateStatus, listingHash);
+    return pollID;
+  },
+
+  multiSend: async (argObj) => {
+    console.log('argObj:', argObj);
   },
 };
 
