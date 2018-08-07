@@ -60,6 +60,15 @@ module.exports = {
     optimizer: {
       enabled: false,
     },
-  }
+  },
+  mocha: (process.argv.includes('gas')) && ({
+    reporter: 'eth-gas-reporter',
+    reporterOptions: {
+      currency: 'USD',
+      gasPrice: 21,
+    },
+    onlyCalledMethods: true,
+    showTimeSpent: false,
+  }),
 };
 
