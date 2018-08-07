@@ -1,5 +1,5 @@
 /* eslint-env mocha */
-/* global assert contract artifacts */
+/* global assert contract */
 const fs = require('fs');
 const BN = require('bignumber.js');
 
@@ -12,20 +12,24 @@ const bigTen = number => new BN(number.toString(10), 10);
 
 contract('Registry', (accounts) => {
   describe('Function: claimInflationRewards', () => {
-    const [applicant, challenger, voterAlice] = accounts;
+    const [applicant, challenger, voterAlice, voterBob, voterCat] = accounts;
     const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let voting;
     let registry;
     let bank;
+    let epochDuration;
 
     beforeEach(async () => {
-      const { votingProxy, registryProxy, tokenInstance, bankInstance } = await utils.getProxies();
+      const {
+        votingProxy, registryProxy, tokenInstance, bankInstance,
+      } = await utils.getProxies();
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
       bank = bankInstance;
+      epochDuration = (await bank.EPOCH_DURATION.call()).toNumber();
 
       await utils.approveProxies(accounts, token, voting, false, registry);
     });
@@ -66,13 +70,16 @@ contract('Registry', (accounts) => {
         'alice should have the same balance as she started',
       );
 
+      await utils.increaseTime(epochDuration);
       await utils.as(voterAlice, registry.claimInflationRewards, pollID);
 
       const challenge = await registry.challenges.call(pollID);
       const epochNumber = challenge[6];
-      const aliceInflationReward = await bank.getEpochInflationVoterRewards(epochNumber, voterAlice);
+      const aliceInflationReward =
+        await bank.getEpochInflationVoterRewards(epochNumber, voterAlice);
 
-      const aliceExpectedInflation = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      const aliceExpectedInflation =
+        aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
       const aliceFinalBalanceInflation = await token.balanceOf.call(voterAlice);
 
       assert.strictEqual(
@@ -121,19 +128,22 @@ contract('Registry', (accounts) => {
 
       const registryBalanceBeforeCIR = await token.balanceOf.call(registry.address);
       // Alice claims inflation rewards
-      const cirReceipt = await utils.as(voterAlice, registry.claimInflationRewards, pollID);
-      // utils.logEvents('claimInflationRewards:', cirReceipt);
+      await utils.increaseTime(epochDuration);
+      await utils.as(voterAlice, registry.claimInflationRewards, pollID);
 
-      const inflation = await bank.getEpochInflation.call();
-      const aliceInflationReward = await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
+      const aliceInflationReward =
+        await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
 
       // transferred from bank -> registry -> voter
       const expectedRegistryBalanceAfterCIR = registryBalanceBeforeCIR;
       const registryBalanceAfterCIR = await token.balanceOf.call(registry.address);
-      assert.strictEqual(registryBalanceAfterCIR.toString(), expectedRegistryBalanceAfterCIR.toString(),
-        'bank should have transferred the correct amount of tokens to the Registry after an epoch resolution');
+      assert.strictEqual(
+        registryBalanceAfterCIR.toString(), expectedRegistryBalanceAfterCIR.toString(),
+        'bank should have transferred the correct amount of tokens to the Registry after an epoch resolution',
+      );
 
-      const aliceExpectedInflation = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      const aliceExpectedInflation =
+        aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
       const aliceFinalBalanceInflation = await token.balanceOf.call(voterAlice);
       assert.strictEqual(
         aliceFinalBalanceInflation.toString(10), aliceExpectedInflation.toString(10),
@@ -141,7 +151,90 @@ contract('Registry', (accounts) => {
       );
     });
 
-    it('should transfer the correct amount of tokens to the Registry, multiple voters, for a single epochs', async () => {});
+    it('should transfer the correct amount of tokens to the Registry, multiple voters, for a single epoch', async () => {
+      const aliceStartingBalance = await token.balanceOf.call(voterAlice);
+      const bobStartingBalance = await token.balanceOf.call(voterAlice);
+
+      const ali = {
+        address: voterAlice, voteOption: '0', numTokens: '500', salt: '420',
+      };
+      const bob = {
+        address: voterBob, voteOption: '0', numTokens: '800', salt: '421',
+      };
+      const cat = {
+        address: voterCat, voteOption: '1', numTokens: '1000', salt: '422',
+      };
+
+      const { pollID } = await utils.getToClaiming({
+        applicant,
+        challenger,
+        voters: { ali, bob, cat },
+        registry,
+        voting,
+        minDeposit,
+      });
+
+      // Get rewards
+      const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, ali.salt);
+      const bobVoterReward = await registry.voterReward.call(voterBob, pollID, '421');
+      // cat did not win, expect this to throw
+      await utils.expectThrow(registry.voterReward.call(voterCat, pollID, '422'), 'should not have completed because cat lost');
+
+      // Claim rewards
+      await utils.as(voterAlice, registry.claimReward, pollID, ali.salt);
+      await utils.as(voterBob, registry.claimReward, pollID, '421');
+      // cat did not win, expect throw
+      await utils.expectThrow(utils.as(voterCat, registry.claimReward, pollID, '422'), 'should not have been able to claim reward as voterCat');
+
+      // Withdraw voting rights
+      await utils.as(voterAlice, voting.withdrawVotingRights, '500');
+      await utils.as(voterBob, voting.withdrawVotingRights, '800');
+      await utils.as(voterCat, voting.withdrawVotingRights, '1000');
+
+      // get the epoch number
+      const epochNumber = await utils.getChallengeEpochNumber(registry, pollID);
+
+      // check Alice's epoch.voterTokens
+      const aliceEpochVoterTokens =
+        await bank.getEpochVoterTokens.call(epochNumber, voterAlice);
+      assert.strictEqual(aliceEpochVoterTokens.toString(), '500', 'epoch should have returned the correct number of tokens');
+
+      const regStartBal = await token.balanceOf.call(registry.address);
+
+      // Claim inflation rewards
+      await utils.increaseTime(epochDuration);
+      await utils.as(voterAlice, registry.claimInflationRewards, pollID);
+      await utils.as(voterBob, registry.claimInflationRewards, pollID);
+      // cat lost, expect throw
+      await utils.expectThrow(
+        utils.as(voterCat, registry.claimInflationRewards, pollID),
+        'should not have been able to claim inflation rewards as voterCat',
+      );
+
+      const regFinalBal = await token.balanceOf.call(registry.address);
+      const expectedRegFinalBal = regStartBal;
+      utils.assertEqualToOrPlusMinusOne(regFinalBal, expectedRegFinalBal, 'registry');
+
+      // Inflation rewards balance checks
+      const aliceInflationReward =
+        await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
+      const aliceExpected = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      const aliceActual = await token.balanceOf.call(voterAlice);
+      utils.assertEqualToOrPlusMinusOne(aliceActual, aliceExpected, voterAlice);
+
+      const bobInflationReward =
+        await bank.getEpochInflationVoterRewards.call(epochNumber, voterBob);
+      const bobExpected = bobStartingBalance.add(bobVoterReward).add(bobInflationReward);
+      const bobActual = await token.balanceOf.call(voterBob);
+      utils.assertEqualToOrPlusMinusOne(bobActual, bobExpected, voterBob);
+
+      const catInflationReward =
+        await bank.getEpochInflationVoterRewards.call(epochNumber, voterCat);
+      assert.strictEqual(
+        catInflationReward.toString(), '0',
+        'cat should not have received any inflation rewards',
+      );
+    });
 
     it('should transfer the correct amount of tokens to the Registry, multiple voters, for multiple epochs', async () => {});
   });

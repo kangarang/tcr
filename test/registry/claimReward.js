@@ -21,7 +21,9 @@ contract('Registry', (accounts) => {
     let bank;
 
     beforeEach(async () => {
-      const { votingProxy, registryProxy, tokenInstance, bankInstance } = await utils.getProxies();
+      const {
+        votingProxy, registryProxy, tokenInstance, bankInstance,
+      } = await utils.getProxies();
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
@@ -212,21 +214,20 @@ contract('Registry', (accounts) => {
     });
 
     it('should add the correct amount of tokens to an epoch.voterTokens', async () => {
-      const listing = utils.getListingHash('epochDetails.net');
-      // Apply
-      await utils.as(applicant, registry.apply, listing, minDeposit, '');
-      // Challenge
-      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
-      // Record Alice's starting balance
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
-      // Alice is so committed
-      await utils.commitVote(pollID, '0', '500', '420', voterAlice, voting);
-      await utils.increaseTime(paramConfig.commitStageLength + 1);
-      // Alice is so revealing
-      await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
-      await utils.increaseTime(paramConfig.revealStageLength + 1);
-      // Update status
-      await utils.as(applicant, registry.updateStatus, listing);
+
+      const ali = {
+        address: voterAlice, voteOption: '0', numTokens: '500', salt: '420',
+      };
+
+      const { pollID } = await utils.getToClaiming({
+        applicant,
+        challenger,
+        voters: { ali },
+        registry,
+        voting,
+        minDeposit,
+      });
 
       // Alice claims reward
       const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
@@ -251,24 +252,24 @@ contract('Registry', (accounts) => {
     });
 
     it('should add the correct amount of tokens to an epoch.voterTokens for multiple voters on a single epoch', async () => {
-      const listing = utils.getListingHash('epochDetails.net');
-      // Apply
-      await utils.as(applicant, registry.apply, listing, minDeposit, '');
-      // Challenge
-      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
-      // Record Alice's & Bob's starting balances
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
       const bobStartingBalance = await token.balanceOf.call(voterAlice);
-      // Alice and Bob are so committed
-      await utils.commitVote(pollID, '0', '500', '420', voterAlice, voting);
-      await utils.commitVote(pollID, '0', '600', '420', voterBob, voting);
-      await utils.increaseTime(paramConfig.commitStageLength + 1);
-      // Alice is so revealing
-      await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
-      await utils.as(voterBob, voting.revealVote, pollID, '0', '420');
-      await utils.increaseTime(paramConfig.revealStageLength + 1);
-      // Update status
-      await utils.as(applicant, registry.updateStatus, listing);
+
+      const ali = {
+        address: voterAlice, voteOption: '0', numTokens: '500', salt: '420',
+      };
+      const bob = {
+        address: voterBob, voteOption: '0', numTokens: '600', salt: '420',
+      };
+
+      const { pollID } = await utils.getToClaiming({
+        applicant,
+        challenger,
+        voters: { ali, bob },
+        registry,
+        voting,
+        minDeposit,
+      });
 
       // Alice claims reward
       const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
