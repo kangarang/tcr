@@ -12,21 +12,25 @@ const utils = require('../utils.js');
 const bigTen = number => new BN(number.toString(10), 10);
 
 contract('Bank', (accounts) => {
-  describe('Function: getCurrentEpoch', () => {
+  describe('Function: getEpochDetails', () => {
     const [applicant, challenger, voterAlice] = accounts;
 
     let token;
     let voting;
     let registry;
     let minDeposit;
+    let bank;
+    let epochDuration;
 
     beforeEach(async () => {
-      const { votingProxy, paramProxy, registryProxy, tokenInstance } = await utils.getProxies();
+      const { votingProxy, paramProxy, registryProxy, tokenInstance, bankInstance } = await utils.getProxies();
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
       parameterizer = paramProxy;
+      bank = bankInstance;
       minDeposit = await parameterizer.get.call('minDeposit');
+      epochDuration = (await bank.EPOCH_DURATION.call()).toNumber();
 
       await utils.approveProxies(accounts, token, voting, parameterizer, registry);
     });
@@ -107,12 +111,9 @@ contract('Bank', (accounts) => {
         'alice should have the same balance as she started',
       );
 
-      const bankAddress = await registry.bank.call();
-      const bank = Bank.at(bankAddress);
+      const epochNumber = await utils.getChallengeEpochNumber(registry, pollID);
 
-      const challenge = await registry.challenges.call(pollID);
-      const epochNumber = challenge[6];
-
+      await utils.increaseTime(epochDuration);
       const cirReceipt = await utils.as(voterAlice, registry.claimInflationRewards, pollID);
 
       const aliceInflationReward = await bank.getEpochInflationVoterRewards(epochNumber, voterAlice);

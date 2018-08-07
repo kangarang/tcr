@@ -1,5 +1,5 @@
 /* eslint-env mocha */
-/* global artifacts */
+/* global assert artifacts */
 
 const Eth = require('ethjs');
 const HttpProvider = require('ethjs-provider-http');
@@ -23,8 +23,61 @@ const paramConfig = config.paramDefaults;
 
 const BN = small => new Eth.BN(small.toString(10), 10);
 
+// from: https://github.com/iamchrissmith/smart-contract-resources/blob/master/snippets/testing/expectThrow.js
+const isReverted = err =>
+  err.includes('revert');
+
+const isEVMException = err =>
+  err.includes('VM Exception');
+
+const isNotAFunction = err =>
+  err.includes('not a function');
+
+const didNotSaveContract = err =>
+  err.includes('contract code couldn\'t be stored');
+
+const invalidJump = err =>
+  err.includes('invalid JUMP');
+
+const invalidOpcode = err =>
+  err.includes('invalid opcode');
+
+const outOfGas = err =>
+  err.includes('out of gas');
+
+const expectThrow = async (promise, errMsg = 'Expected throw not received') => {
+  let result;
+  try {
+    result = await promise;
+  } catch (error) {
+    const err = error.toString();
+    assert.isTrue(
+      isReverted(err) ||
+      isEVMException(err) ||
+      isNotAFunction(err) ||
+      didNotSaveContract(err) ||
+      invalidJump(err) ||
+      invalidOpcode(err) ||
+      outOfGas(err),
+      'Expected throw, got \'' + error + '\' instead');
+    return;
+  }
+  assert.isTrue(false, `${errMsg} ${result.toString()}`);
+};
+
 const utils = {
-  // from: https://github.com/gnosis/safe-contracts/blob/master/test/utils.js
+  expectThrow: expectThrow,
+
+  assertEqualToOrPlusMinusOne: (actual, expected, subject) => {
+    assert(
+      (actual.toString(10) === expected.toString(10)) ||
+      (actual.sub(expected).toString() === '1') ||
+      (expected.sub(actual).toString() === '1'),
+      `${subject} actual balance is not within range (+1,-1,=) expected`,
+    );
+  },
+
+  // adapted from: https://github.com/gnosis/safe-contracts/blob/master/test/utils.js
   logGasUsage: (subject, transactionOrReceipt) => {
     let receipt = transactionOrReceipt.receipt || transactionOrReceipt;
     console.log(`Gas costs for ${subject}:`);
@@ -33,9 +86,18 @@ const utils = {
 
   logEvents: (subject, receipt) => {
     console.log(`Events for ${subject}:`);
-    receipt.logs.forEach(log => {
-      console.log(`    ${log.event}: ${JSON.stringify(log.args)}`);
+    receipt.logs.forEach((log, index) => {
+      console.log(`${index} ${log.event}:`);
+      Object.keys(log.args).map(argKey => {
+        console.log(`    ${argKey}: ${log.args[argKey]}`);
+      })
+      console.log('');
     });
+  },
+
+  logGasAndEvents: (subject, receipt) => {
+    utils.logGasUsage(subject, receipt);
+    utils.logEvents(subject, receipt);
   },
 
   getProxies: async () => {
@@ -238,6 +300,39 @@ const utils = {
   getChallengeEpochNumber: async (registry, pollID) => {
     const challenge = await registry.challenges.call(pollID);
     return challenge[6];
+  },
+
+  getToClaiming: async (argObj) => {
+    const { applicant, challenger, voters, registry, voting, minDeposit } = argObj
+    const listing = utils.getListingHash('getClaim.in');
+
+    // Apply / Challenge
+    await utils.as(applicant, registry.apply, listing, minDeposit, '');
+    const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
+
+    // Commits
+    for (let voter in voters) {
+      if (voters.hasOwnProperty(voter)) {
+        const { address, voteOption = '0', numTokens = '500', salt = '420' } = voters[voter];
+        await utils.commitVote(pollID, voteOption, numTokens, salt, address, voting);
+      }
+    }
+
+    await utils.increaseTime(paramConfig.commitStageLength + 1);
+
+    // Reveals
+    for (let voter in voters) {
+      if (voters.hasOwnProperty(voter)) {
+        const { address, voteOption = '0', salt = '420' } = voters[voter];
+        await utils.as(address, voting.revealVote, pollID, voteOption, salt);
+      }
+    }
+
+    await utils.increaseTime(paramConfig.revealStageLength + 1);
+
+    // Update status
+    await utils.as(applicant, registry.updateStatus, listing);
+    return { pollID }
   }
 };
 
