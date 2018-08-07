@@ -6,22 +6,17 @@ const utils = require('../utils.js');
 
 contract('Bank', (accounts) => {
   describe('Function: getCurrentEpoch', () => {
-    // const [applicant, challenger, voterAlice] = accounts;
-
     let token;
     let voting;
     let registry;
-    let minDeposit;
 
     beforeEach(async () => {
-      const { votingProxy, paramProxy, registryProxy, tokenInstance } = await utils.getProxies();
+      const { votingProxy, registryProxy, tokenInstance } = await utils.getProxies();
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
-      parameterizer = paramProxy;
-      minDeposit = await parameterizer.get.call('minDeposit');
 
-      await utils.approveProxies(accounts, token, voting, parameterizer, registry);
+      await utils.approveProxies(accounts, token, voting, null, registry);
     });
 
     it('should return the correct epoch each time it is invoked', async () => {

@@ -11,7 +11,7 @@ module.exports = (deployer) => {
   deployer.link(DLL, Registry);
   deployer.link(AttributeStore, Registry);
 
-  return deployer.deploy(Registry).then(registry => {
+  return deployer.deploy(Registry).then((registry) => {
     // link libraries
     deployer.link(DLL, RegistryFactory);
     deployer.link(AttributeStore, RegistryFactory);

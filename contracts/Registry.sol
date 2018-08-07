@@ -306,35 +306,22 @@ contract Registry {
     */
     function claimInflationRewards(uint _pollID) public {
         uint epochNumber = challenges[_pollID].epochNumber;
-
-        // ----------------
-        // The claimInflationRewards function has privileged access to a bank contract.
-        // the first time the bank contract is invoked for some epoch,
-        // the TCR notes the bank’s balance,
-        // calculates 1/N of the balance (where N is a hard-coded parameter),
-        // stores that result (EPOCH_INFLATION) and transfers EPOCH_INFLATION tokens from the bank to itself.
-        // ----------------
-
         (uint epochTokens, uint epochInflation, bool resolved) = bank.getEpochDetails(epochNumber);
 
         // if epoch has not been resolved, resolve the epoch,
         //  -> calculate the epoch.inflation, store it,
         //  -> transfer the epoch.inflation from Bank -> this
+        // NOTE: Gas is 3x expensive for an epoch resolver (126295 vs 47102)
         if (!resolved && (epochInflation == 0)) {
             epochInflation = bank.resolveEpochInflationTransfer(epochNumber);
+            // emit event here because we have access to msg.sender (resolver)
             emit _EpochResolved(epochNumber, epochTokens, epochInflation, msg.sender);
         }
 
-        // ----------------
-        // When users invoke claimInflationRewards for some epoch,
-        // they are given inflation rewards from the EPOCH_INFLATION amount,
-        // proportional to their tallied token weight in that epoch.
-        // ----------------
-
         // (epoch.voterTokens[msg.sender] * epoch.inflation) / epoch.tokens
         uint epochInflationVoterRewards = bank.getEpochInflationVoterRewards(epochNumber, msg.sender);
+        require(epochInflationVoterRewards > 0, "Epoch inflation voter reward is 0");
 
-        // transfer epoch_inflation_voter_rewards -> msg.sender
         require(token.transfer(msg.sender, epochInflationVoterRewards));
         emit _InflationRewardsClaimed(epochNumber, epochTokens, epochInflation, epochInflationVoterRewards, msg.sender);
     }

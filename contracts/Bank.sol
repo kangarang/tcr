@@ -82,18 +82,18 @@ contract Bank {
     @param _epochNumber     The epoch number being resolved
     */
     function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (uint epochInflation) {
-        // uint currentEpochNumber = getCurrentEpoch();
-        // require(currentEpochNumber > _epochNumber);
+        require(_epochNumber < getCurrentEpoch(), "Epoch greater than the current epoch");
         Epoch storage epoch = epochs[_epochNumber];
-        require(!epoch.resolved);
+        require(!epoch.resolved, "Epoch has not been resolved yet");
 
         // set the epoch's resolved flag as true
         epoch.resolved = true;
         // calculate the inflation and set it
         // Bank.balance / inflation_denominator
-        epoch.inflation = getEpochInflation();
+        epoch.inflation = getCurrentEpochInflation();
 
-        require(token.transfer(msg.sender, epoch.inflation));
+        // transfer tokens to Registry
+        require(token.transfer(owner, epoch.inflation));
         return epoch.inflation;
     }
 
@@ -101,7 +101,7 @@ contract Bank {
     // Getters
     // -------
 
-    function getEpochInflation() public view returns (uint epochInflation) {
+    function getCurrentEpochInflation() public view returns (uint epochInflation) {
         return token.balanceOf(this).div(INFLATION_DENOMINATOR);
     }
 

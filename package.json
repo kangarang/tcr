@@ -10,9 +10,9 @@
     "deploy-rinkeby": "truffle migrate --network rinkeby",
     "deploy-ganache": "truffle migrate --network ganache",
     "deploy-mainnet": "truffle migrate --network mainnet",
-    "test": "truffle test",
-    "fix": "eslint --fix",
-    "lint": "eslint"
+    "test": "npm run lint && truffle test",
+    "fix": "eslint --fix .",
+    "lint": "eslint ."
   },
   "author": "Irene Lin <irene.lin@consensys.net>, Mira Zeitlin <miranda.zeitlin@consensys.net>, Yorke Rhodes <yorke.rhodesiv@consensys.net>",
   "license": "ISC",

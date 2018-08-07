@@ -59,14 +59,15 @@ const expectThrow = async (promise, errMsg = 'Expected throw not received') => {
       invalidJump(err) ||
       invalidOpcode(err) ||
       outOfGas(err),
-      'Expected throw, got \'' + error + '\' instead');
+      `Expected throw, got '${error}' instead`,
+    );
     return;
   }
   assert.isTrue(false, `${errMsg} ${result.toString()}`);
 };
 
 const utils = {
-  expectThrow: expectThrow,
+  expectThrow,
 
   assertEqualToOrPlusMinusOne: (actual, expected, subject) => {
     assert(
@@ -79,7 +80,7 @@ const utils = {
 
   // adapted from: https://github.com/gnosis/safe-contracts/blob/master/test/utils.js
   logGasUsage: (subject, transactionOrReceipt) => {
-    let receipt = transactionOrReceipt.receipt || transactionOrReceipt;
+    const receipt = transactionOrReceipt.receipt || transactionOrReceipt;
     console.log(`Gas costs for ${subject}:`);
     console.log(`    ${receipt.gasUsed}`);
   },
@@ -88,9 +89,10 @@ const utils = {
     console.log(`Events for ${subject}:`);
     receipt.logs.forEach((log, index) => {
       console.log(`${index} ${log.event}:`);
-      Object.keys(log.args).map(argKey => {
+      Object.keys(log.args).map((argKey) => {
         console.log(`    ${argKey}: ${log.args[argKey]}`);
-      })
+        return argKey;
+      });
       console.log('');
     });
   },
@@ -303,7 +305,9 @@ const utils = {
   },
 
   getToClaiming: async (argObj) => {
-    const { applicant, challenger, voters, registry, voting, minDeposit } = argObj
+    const {
+      applicant, challenger, voters, registry, voting, minDeposit,
+    } = argObj;
     const listing = utils.getListingHash('getClaim.in');
 
     // Apply / Challenge
@@ -311,29 +315,27 @@ const utils = {
     const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 
     // Commits
-    for (let voter in voters) {
-      if (voters.hasOwnProperty(voter)) {
-        const { address, voteOption = '0', numTokens = '500', salt = '420' } = voters[voter];
-        await utils.commitVote(pollID, voteOption, numTokens, salt, address, voting);
-      }
-    }
+    await Promise.all(Object.keys(voters).map(async (voter) => {
+      const {
+        address, voteOption = '0', numTokens = '500', salt = '420',
+      } = voters[voter];
+      await utils.commitVote(pollID, voteOption, numTokens, salt, address, voting);
+    }));
 
     await utils.increaseTime(paramConfig.commitStageLength + 1);
 
     // Reveals
-    for (let voter in voters) {
-      if (voters.hasOwnProperty(voter)) {
-        const { address, voteOption = '0', salt = '420' } = voters[voter];
-        await utils.as(address, voting.revealVote, pollID, voteOption, salt);
-      }
-    }
+    await Promise.all(Object.keys(voters).map(async (voter) => {
+      const { address, voteOption = '0', salt = '420' } = voters[voter];
+      await utils.as(address, voting.revealVote, pollID, voteOption, salt);
+    }));
 
     await utils.increaseTime(paramConfig.revealStageLength + 1);
 
     // Update status
     await utils.as(applicant, registry.updateStatus, listing);
-    return { pollID }
-  }
+    return { pollID };
+  },
 };
 
 module.exports = utils;
