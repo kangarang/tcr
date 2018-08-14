@@ -317,7 +317,7 @@ contract('Registry', (accounts) => {
       await utils.increaseTime(epochDuration);
       await utils.as(voterBob, registry.claimInflationRewards, pollID1);
       await utils.as(voterCat, registry.claimInflationRewards, pollID2);
-      await utils.as(voterBob, registry.claimInflationRewards, pollID2);
+      await utils.as(voterDog, registry.claimInflationRewards, pollID2);
       // cat lost, expect throw
       await utils.expectThrow(
         utils.as(voterAlice, registry.claimInflationRewards, pollID1),
