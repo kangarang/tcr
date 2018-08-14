@@ -11,6 +11,8 @@ module.exports = (deployer) => {
   deployer.link(DLL, Registry);
   deployer.link(AttributeStore, Registry);
 
+  // max evm bytecode size is 24 kb.
+  // this reduces the size of the factory down to ~ 20 kb.
   return deployer.deploy(Registry).then((registry) => {
     // link libraries
     deployer.link(DLL, RegistryFactory);
