@@ -221,6 +221,11 @@ contract('Registry', (accounts) => {
         await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
       const aliceExpected = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
       const aliceActual = await token.balanceOf.call(voterAlice);
+      // assert.strictEqual(
+      //   aliceActual.toString(),
+      //   aliceExpected.toString(),
+      //   'alice should have to correct balance after claim inflation rewards',
+      // );
       utils.assertEqualToOrPlusMinusOne(aliceActual, aliceExpected, voterAlice);
 
       const bobInflationReward =

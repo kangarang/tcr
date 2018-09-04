@@ -322,7 +322,7 @@ contract Registry {
         uint epochInflationVoterRewards = bank.getEpochInflationVoterRewards(epochNumber, msg.sender);
         require(epochInflationVoterRewards > 0, "Epoch inflation voter reward is 0");
 
-        require(token.transfer(msg.sender, epochInflationVoterRewards));
+        require(token.transfer(msg.sender, epochInflationVoterRewards), "Failed to transfer epoch inflation voter rewards");
         emit _InflationRewardsClaimed(epochNumber, epochTokens, epochInflation, epochInflationVoterRewards, msg.sender);
     }
 

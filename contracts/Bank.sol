@@ -16,21 +16,23 @@ contract Bank {
     // Global Variables
     EIP20Interface public token;
     uint public BIRTH_DATE; // set once on init
-    uint public constant EPOCH_DURATION = 180; // 3 minutes (HARD)
+    uint public constant EPOCH_DURATION = 2592000; // 1 month (HARD)
     uint public constant INFLATION_DENOMINATOR = 10000; // HARD
     address public owner;
 
     struct Epoch {
-        uint tokens;
-        uint inflation;
-        bool resolved;
+        uint tokens;    // Aggregate number of votingRights used by the majority bloc voters
+        uint inflation; // Number of reserve tokens an epoch will inflate the supply for voters to claim
+        bool resolved;  // Indicates that the epoch was resolved and inflation rewards were transferred to Registry
         mapping(address => uint) voterTokens;
     }
 
+    // Maps epochNumbers to associated Epoch data
     mapping(uint => Epoch) public epochs;
 
+    // Authorization for state-changing functions
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Message sender is not authorized");
         _;
     }
 
@@ -40,7 +42,7 @@ contract Bank {
     @param _token   The address where the ERC20 token contract is deployed
     */
     constructor(address _token) public {
-        require(_token != 0 && address(token) == 0);
+        require(_token != 0 && address(token) == 0, "Token should not be set and should not be set to the zero address");
         owner = msg.sender;
         token = EIP20Interface(_token);
         BIRTH_DATE = now;
@@ -53,7 +55,7 @@ contract Bank {
     @param _totalWinningTokens  The number of tokens revealed by a majority faction
     */
     function addChallengeWinningTokens(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool success) {
-        require(!epochs[_epochNumber].resolved);
+        require(!epochs[_epochNumber].resolved, "Epoch should not be resolved");
 
         // increment epoch's total tokens (revealed by majority faction)
         epochs[_epochNumber].tokens += _totalWinningTokens;
@@ -93,7 +95,7 @@ contract Bank {
         epoch.inflation = getCurrentEpochInflation();
 
         // transfer tokens to Registry
-        require(token.transfer(owner, epoch.inflation));
+        require(token.transfer(owner, epoch.inflation), "Failed to transfer epoch inflation to owner");
         return epoch.inflation;
     }
 
