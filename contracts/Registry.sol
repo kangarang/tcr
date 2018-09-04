@@ -136,7 +136,7 @@ contract Registry {
         require(listing.unstakedDeposit - _amount >= parameterizer.get("minDeposit"));
 
         listing.unstakedDeposit -= _amount;
-        require(token.transfer(msg.sender, _amount));
+        require(token.transfer(msg.sender, _amount), "Should have transferred tokens to the message sender");
 
         emit _Withdrawal(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
@@ -149,11 +149,11 @@ contract Registry {
     function exit(bytes32 _listingHash) external {
         Listing storage listing = listings[_listingHash];
 
-        require(msg.sender == listing.owner);
-        require(isWhitelisted(_listingHash));
+        require(msg.sender == listing.owner, "Message sender should be the listing's owner");
+        require(isWhitelisted(_listingHash), "Listing should be whitelisted");
 
         // Cannot exit during ongoing challenge
-        require(listing.challengeID == 0 || challenges[listing.challengeID].resolved);
+        require(listing.challengeID == 0 || challenges[listing.challengeID].resolved, "Listing's challengeID should be zero or challenge should be resolved");
 
         // Remove listingHash & return tokens
         resetListing(_listingHash);
@@ -178,7 +178,7 @@ contract Registry {
         // Listing must be in apply stage or already on the whitelist
         require(appWasMade(_listingHash) || listing.whitelisted);
         // Prevent multiple challenges
-        require(listing.challengeID == 0 || challenges[listing.challengeID].resolved);
+        require(listing.challengeID == 0 || challenges[listing.challengeID].resolved, "Listing's challengeID should be zero or challenge should be resolved");
 
         if (listing.unstakedDeposit < minDeposit) {
             // Not enough tokens, listingHash auto-delisted
@@ -258,24 +258,24 @@ contract Registry {
     @param _salt        The salt of a voter's commit hash in the given poll
     */
     function claimReward(uint _challengeID, uint _salt) public {
-        Challenge storage challenge = challenges[_challengeID];
+        Challenge storage challengeInstance = challenges[_challengeID];
         // Ensures the voter has not already claimed tokens and challenge results have been processed
-        require(challenge.tokenClaims[msg.sender] == false);
-        require(challenge.resolved == true);
+        require(challengeInstance.tokenClaims[msg.sender] == false);
+        require(challengeInstance.resolved == true);
 
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
         uint reward = voterReward(msg.sender, _challengeID, _salt);
 
         // Subtracts the voter's information to preserve the participation ratios
         // of other voters compared to the remaining pool of rewards
-        challenge.totalTokens -= voterTokens;
-        challenge.rewardPool -= reward;
+        challengeInstance.totalTokens -= voterTokens;
+        challengeInstance.rewardPool -= reward;
         // Ensures a voter cannot claim tokens again
-        challenge.tokenClaims[msg.sender] = true;
+        challengeInstance.tokenClaims[msg.sender] = true;
 
         // If the user’s vote is revealed in the majority voting faction,
         // the TCR adds the user’s revealed token weight to that user’s tally for the epoch.
-        require(bank.addVoterRewardTokens(challenge.epochNumber, msg.sender, voterTokens));
+        require(bank.addVoterRewardTokens(challengeInstance.epochNumber, msg.sender, voterTokens));
 
         // transfers reward to the voter
         require(token.transfer(msg.sender, reward));
