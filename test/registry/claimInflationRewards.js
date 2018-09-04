@@ -34,7 +34,7 @@ contract('Registry', (accounts) => {
       await utils.approveProxies(accounts, token, voting, false, registry);
     });
 
-    it('should transfer the correct number of tokens once a challenge has been resolved', async () => {
+    it('should properly apportion inflation rewards', async () => {
       const listing = utils.getListingHash('claimthis.net');
 
       // Apply
@@ -56,7 +56,7 @@ contract('Registry', (accounts) => {
       await utils.as(applicant, registry.updateStatus, listing);
 
       // Alice claims reward
-      const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
+      const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, '420');
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
 
       // Alice withdraws her voting rights
@@ -67,7 +67,7 @@ contract('Registry', (accounts) => {
 
       assert.strictEqual(
         aliceFinalBalance.toString(10), aliceExpected.toString(10),
-        'alice should have the same balance as she started',
+        'alice should have the same balance as she started + her voter rewards',
       );
 
       await utils.increaseTime(epochDuration);
@@ -78,12 +78,12 @@ contract('Registry', (accounts) => {
       const aliceInflationReward =
         await bank.getEpochInflationVoterRewards(epochNumber, voterAlice);
 
-      const aliceExpectedInflation =
+      const aliceExpectedAfterInflation =
         aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
-      const aliceFinalBalanceInflation = await token.balanceOf.call(voterAlice);
+      const aliceFinalBalanceAfterInflation = await token.balanceOf.call(voterAlice);
 
       assert.strictEqual(
-        aliceFinalBalanceInflation.toString(10), aliceExpectedInflation.toString(10),
+        aliceFinalBalanceAfterInflation.toString(10), aliceExpectedAfterInflation.toString(10),
         'alice has the wrong balance after inflation',
       );
     });
@@ -126,6 +126,7 @@ contract('Registry', (accounts) => {
       const aliceEpochVoterTokens = await bank.getEpochVoterTokens.call(epochNumber, voterAlice);
       assert.strictEqual(aliceEpochVoterTokens.toString(), '500', 'epoch should have returned the correct number of tokens');
 
+      // CIR == claimInflationRewards
       const registryBalanceBeforeCIR = await token.balanceOf.call(registry.address);
       // Alice claims inflation rewards
       await utils.increaseTime(epochDuration);
@@ -134,20 +135,22 @@ contract('Registry', (accounts) => {
       const aliceInflationReward =
         await bank.getEpochInflationVoterRewards.call(epochNumber, voterAlice);
 
+      const aliceExpectedAfterInflation =
+        aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
+      const aliceFinalBalanceAfterInflation = await token.balanceOf.call(voterAlice);
+      assert.strictEqual(
+        aliceFinalBalanceAfterInflation.toString(10), aliceExpectedAfterInflation.toString(10),
+        'alice has the wrong balance after inflation',
+      );
+
+      // since there is only 1 voter, and the voter's inflation rewards get transferred during CIR,
+      // the bank should have the same balance as before
       // transferred from bank -> registry -> voter
       const expectedRegistryBalanceAfterCIR = registryBalanceBeforeCIR;
       const registryBalanceAfterCIR = await token.balanceOf.call(registry.address);
       assert.strictEqual(
         registryBalanceAfterCIR.toString(), expectedRegistryBalanceAfterCIR.toString(),
         'bank should have transferred the correct amount of tokens to the Registry after an epoch resolution',
-      );
-
-      const aliceExpectedInflation =
-        aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
-      const aliceFinalBalanceInflation = await token.balanceOf.call(voterAlice);
-      assert.strictEqual(
-        aliceFinalBalanceInflation.toString(10), aliceExpectedInflation.toString(10),
-        'alice has the wrong balance after inflation',
       );
     });
 
@@ -177,20 +180,20 @@ contract('Registry', (accounts) => {
 
       // Get rewards
       const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, ali.salt);
-      const bobVoterReward = await registry.voterReward.call(voterBob, pollID, '421');
+      const bobVoterReward = await registry.voterReward.call(voterBob, pollID, bob.salt);
       // cat did not win, expect this to throw
-      await utils.expectThrow(registry.voterReward.call(voterCat, pollID, '422'), 'should not have completed because cat lost');
+      await utils.expectRevert(registry.voterReward.call(voterCat, pollID, cat.salt), 'should not have completed because cat lost');
 
       // Claim rewards
       await utils.as(voterAlice, registry.claimReward, pollID, ali.salt);
-      await utils.as(voterBob, registry.claimReward, pollID, '421');
+      await utils.as(voterBob, registry.claimReward, pollID, bob.salt);
       // cat did not win, expect throw
-      await utils.expectThrow(utils.as(voterCat, registry.claimReward, pollID, '422'), 'should not have been able to claim reward as voterCat');
+      await utils.expectRevert(utils.as(voterCat, registry.claimReward, pollID, cat.salt), 'should not have been able to claim reward as voterCat');
 
       // Withdraw voting rights
-      await utils.as(voterAlice, voting.withdrawVotingRights, '500');
-      await utils.as(voterBob, voting.withdrawVotingRights, '800');
-      await utils.as(voterCat, voting.withdrawVotingRights, '1000');
+      await utils.as(voterAlice, voting.withdrawVotingRights, ali.numTokens);
+      await utils.as(voterBob, voting.withdrawVotingRights, bob.numTokens);
+      await utils.as(voterCat, voting.withdrawVotingRights, cat.numTokens);
 
       // get the epoch number
       const epochNumber = await utils.getChallengeEpochNumber(registry, pollID);
@@ -198,20 +201,23 @@ contract('Registry', (accounts) => {
       // check Alice's epoch.voterTokens
       const aliceEpochVoterTokens =
         await bank.getEpochVoterTokens.call(epochNumber, voterAlice);
-      assert.strictEqual(aliceEpochVoterTokens.toString(), '500', 'epoch should have returned the correct number of tokens');
+      assert.strictEqual(aliceEpochVoterTokens.toString(), ali.numTokens, 'epoch should have returned the correct number of tokens');
 
       const regStartBal = await token.balanceOf.call(registry.address);
 
       // Claim inflation rewards
       await utils.increaseTime(epochDuration);
+      // TODO: assert epochNumber has changed
       await utils.as(voterAlice, registry.claimInflationRewards, pollID);
       await utils.as(voterBob, registry.claimInflationRewards, pollID);
-      // cat lost, expect throw
-      await utils.expectThrow(
+      // cat lost, expect revert
+      await utils.expectRevert(
         utils.as(voterCat, registry.claimInflationRewards, pollID),
         'should not have been able to claim inflation rewards as voterCat',
       );
 
+      // TODO: include in owners manual
+      // maybe use BN.divRound for absolute precision?
       const regFinalBal = await token.balanceOf.call(registry.address);
       const expectedRegFinalBal = regStartBal;
       utils.assertEqualToOrPlusMinusOne(regFinalBal, expectedRegFinalBal, 'registry');
