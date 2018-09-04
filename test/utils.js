@@ -69,6 +69,21 @@ const expectThrow = async (promise, errMsg = 'Expected throw not received') => {
 const utils = {
   expectThrow,
 
+  expectRevert: async (promise, errMsg = 'Expected throw not received') => {
+    let result;
+    try {
+      result = await promise;
+    } catch (error) {
+      const err = error.toString();
+      assert.isTrue(
+        isReverted(err),
+        `Expected revert, got '${error}' instead`,
+      );
+      return;
+    }
+    assert.isTrue(false, `${errMsg} ${result.toString()}`);
+  },
+
   assertEqualToOrPlusMinusOne: (actual, expected, subject) => {
     assert(
       (actual.toString(10) === expected.toString(10)) ||
