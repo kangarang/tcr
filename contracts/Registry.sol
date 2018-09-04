@@ -38,13 +38,13 @@ contract Registry {
     }
 
     struct Challenge {
-        uint rewardPool;        // (remaining) Pool of tokens to be distributed to winning voters
-        address challenger;     // Owner of Challenge
-        bool resolved;          // Indication of if challenge is resolved
-        uint stake;             // Number of tokens at stake for either party during challenge
-        uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
-        uint totalWinningTokens;
-        uint epochNumber;
+        uint rewardPool;         // (remaining) Pool of tokens to be distributed to winning voters
+        address challenger;      // Owner of Challenge
+        bool resolved;           // Indication of if challenge is resolved
+        uint stake;              // Number of tokens at stake for either party during challenge
+        uint totalTokens;        // (remaining) Number of tokens used in voting by the winning side
+        uint totalWinningTokens; // Number of tokens used in voting by the winning side
+        uint epochNumber;        // Epoch number at challenge resolution
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
     }
 
@@ -66,9 +66,9 @@ contract Registry {
     @param _token The address where the ERC20 token contract is deployed
     */
     function init(address _token, address _voting, address _parameterizer, string _name) public {
-        require(_token != 0 && address(token) == 0);
-        require(_voting != 0 && address(voting) == 0);
-        require(_parameterizer != 0 && address(parameterizer) == 0);
+        require(_token != 0 && address(token) == 0, "Token should not already or currently be set to zero");
+        require(_voting != 0 && address(voting) == 0, "Voting should not already or currently be set to zero");
+        require(_parameterizer != 0 && address(parameterizer) == 0, "Parameterizer should not already or currently be set to zero");
 
         token = EIP20Interface(_token);
         voting = PLCRVoting(_voting);
@@ -89,9 +89,9 @@ contract Registry {
     @param _data        Extra data relevant to the application. Think IPFS hashes.
     */
     function apply(bytes32 _listingHash, uint _amount, string _data) external {
-        require(!isWhitelisted(_listingHash));
-        require(!appWasMade(_listingHash));
-        require(_amount >= parameterizer.get("minDeposit"));
+        require(!isWhitelisted(_listingHash), "Listing should not be whitelisted");
+        require(!appWasMade(_listingHash), "Application should not have been made");
+        require(_amount >= parameterizer.get("minDeposit"), "Amount should be greater than or equal to the minimum deposit");
 
         // Sets owner
         Listing storage listing = listings[_listingHash];
@@ -102,7 +102,7 @@ contract Registry {
         listing.unstakedDeposit = _amount;
 
         // Transfers tokens from user to Registry contract
-        require(token.transferFrom(listing.owner, this, _amount));
+        require(token.transferFrom(listing.owner, this, _amount), "Should have transferred tokens from the listing owner to Registry");
 
         emit _Application(_listingHash, _amount, listing.applicationExpiry, _data, msg.sender);
     }
@@ -115,10 +115,10 @@ contract Registry {
     function deposit(bytes32 _listingHash, uint _amount) external {
         Listing storage listing = listings[_listingHash];
 
-        require(listing.owner == msg.sender);
+        require(listing.owner == msg.sender, "Listing owner should be the message sender");
 
         listing.unstakedDeposit += _amount;
-        require(token.transferFrom(msg.sender, this, _amount));
+        require(token.transferFrom(msg.sender, this, _amount), "Should have transferred tokens from the message sender to Registry");
 
         emit _Deposit(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
@@ -131,8 +131,8 @@ contract Registry {
     function withdraw(bytes32 _listingHash, uint _amount) external {
         Listing storage listing = listings[_listingHash];
 
-        require(listing.owner == msg.sender);
-        require(_amount <= listing.unstakedDeposit);
+        require(listing.owner == msg.sender, "Listing owner should be the message sender");
+        require(_amount <= listing.unstakedDeposit, "Amount should be less than or equal to the listing's unstaked deposit");
         require(listing.unstakedDeposit - _amount >= parameterizer.get("minDeposit"));
 
         listing.unstakedDeposit -= _amount;

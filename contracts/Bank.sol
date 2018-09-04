@@ -42,7 +42,7 @@ contract Bank {
     @param _token   The address where the ERC20 token contract is deployed
     */
     constructor(address _token) public {
-        require(_token != 0 && address(token) == 0, "Token should not be set and should not be set to the zero address");
+        require(_token != 0 && address(token) == 0, "Token should not already or currently be set to zero");
         owner = msg.sender;
         token = EIP20Interface(_token);
         BIRTH_DATE = now;
