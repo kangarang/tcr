@@ -42,7 +42,7 @@ contract Bank {
     @param _token   The address where the ERC20 token contract is deployed
     */
     constructor(address _token) public {
-        require(_token != 0 && address(token) == 0, "Token should not already or currently be set to zero");
+        require(_token != 0 && address(token) == 0, "Token should currently be zero & not set to zero");
         owner = msg.sender;
         token = EIP20Interface(_token);
         BIRTH_DATE = now;
@@ -54,7 +54,7 @@ contract Bank {
     @param _epochNumber         The epoch to increment total tokens
     @param _totalWinningTokens  The number of tokens revealed by a majority faction
     */
-    function addChallengeWinningTokens(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool success) {
+    function addChallengeWinningTokens(uint _epochNumber, uint _totalWinningTokens) public onlyOwner returns (bool) {
         require(!epochs[_epochNumber].resolved, "Epoch should not be resolved");
 
         // increment epoch's total tokens (revealed by majority faction)
@@ -69,9 +69,8 @@ contract Bank {
     @param _voter           The address of a voter who claimed rewards during an epoch
     @param _numTokens       The number of token rewards claimed by a voter
     */
-    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (bool success) {
-        // TODO: uncommenting this throws out of gas
-        // require(!epochs[_epochNumber].resolved);
+    function addVoterRewardTokens(uint _epochNumber, address _voter, uint _numTokens) public onlyOwner returns (bool) {
+        require(!epochs[_epochNumber].resolved);
 
         epochs[_epochNumber].voterTokens[_voter] += _numTokens;
         return true;
@@ -83,7 +82,7 @@ contract Bank {
     @notice                 Invoked during claimInflationRewards
     @param _epochNumber     The epoch number being resolved
     */
-    function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (uint epochInflation) {
+    function resolveEpochInflationTransfer(uint _epochNumber) public onlyOwner returns (uint) {
         require(_epochNumber < getCurrentEpoch(), "Epoch greater than the current epoch");
         Epoch storage epoch = epochs[_epochNumber];
         require(!epoch.resolved, "Epoch has not been resolved yet");
@@ -133,7 +132,7 @@ contract Bank {
     }
 
     /**
-    @dev                    Returns the number of tokens an epoch will reward to a voter while the (liquid) supply
+    @dev                    Returns the number of tokens an epoch will reward to a voter during epoch inflation
     @param _epochNumber     The epoch number being examined
     @param _voter           The address of a voter who claimed rewards during an epoch
     */
