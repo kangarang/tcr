@@ -66,9 +66,9 @@ contract Registry {
     @param _token The address where the ERC20 token contract is deployed
     */
     function init(address _token, address _voting, address _parameterizer, string _name) public {
-        require(_token != 0 && address(token) == 0, "Token should not already or currently be set to zero");
-        require(_voting != 0 && address(voting) == 0, "Voting should not already or currently be set to zero");
-        require(_parameterizer != 0 && address(parameterizer) == 0, "Parameterizer should not already or currently be set to zero");
+        require(_token != 0 && address(token) == 0, "Token should currently be zero & not set to zero");
+        require(_voting != 0 && address(voting) == 0, "Voting should currently be zero & not set to zero");
+        require(_parameterizer != 0 && address(parameterizer) == 0, "Parameterizer should currently be zero & not set to zero");
 
         token = EIP20Interface(_token);
         voting = PLCRVoting(_voting);
